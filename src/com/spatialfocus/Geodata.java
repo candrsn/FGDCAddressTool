@@ -1,11 +1,14 @@
 package com.spatialfocus;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Serializable;
@@ -47,11 +50,33 @@ import com.vividsolutions.jts.geom.Geometry;
 
 public class Geodata {
     static Connection dbconn = null;
-    static String  work_dir = "projects";
-    static String proj_name = null;
-    static String sproj_name = null;
+    String  work_dir = "projects";
+    String proj_name = null;
+    String sproj_name = null;
+    String operationMode = "";
 	
-	public static int Init() throws SQLException, Exception {
+    public Geodata(String longName, String shortName) throws Exception {
+
+		proj_name = longName;
+		sproj_name = shortName;
+		getParams();
+	}
+    
+	public void getParams() throws Exception {
+
+		java.util.Properties configFile = new java.util.Properties();
+		InputStream pf = this.getClass().getClassLoader().getResourceAsStream("AddressTool.properties");
+		if ( pf != null ) {
+			configFile.load(pf);
+		
+			operationMode = configFile.getProperty("operationMode");
+
+			work_dir = configFile.getProperty("work_dir");		
+		
+		}
+	
+	}
+	public int Init() throws SQLException, Exception {
 		int needInit = 1;
 		File f = new File(work_dir + "/" + sproj_name + ".h2.db");
 		
@@ -69,11 +94,11 @@ public class Geodata {
 		return 1;
 	}
 
-	public static int createSupportTables() throws Exception {
+	public int createSupportTables() throws Exception {
 		 
 			Statement stmt2 = dbconn.createStatement();
 			
-			File f = new File("sql/support_tables.sql");
+			File f = new File("resources/sql/support_tables.sql");
 			if ( ! f.exists() ) {
 				System.out.println("required table templates not found");
 			
@@ -151,7 +176,7 @@ public class Geodata {
 	    int warningCount = 0;
 		String swkt = null;
 		
-		SimpleFeatureSource featureSource = readSHP(shpFilePath);
+		SimpleFeatureSource featureSource =  readSHP(shpFilePath);
 		SimpleFeatureCollection collection = featureSource.getFeatures();
 		SimpleFeatureIterator iterator = collection.features();
 
@@ -215,6 +240,9 @@ public class Geodata {
 		
 		h2_import("RawData", "tmp/workread.csv");
 		
+		File f = new File("tmp/workread.csv");
+		f.deleteOnExit();
+		
 		Statement stmt = dbconn.createStatement();
 		stmt.execute("INSERT INTO table_info( id,name,role,status) values (0,'RAWDATA','address','R')");
 
@@ -228,19 +256,24 @@ public class Geodata {
 			return 1;
 		}
 
-	public static int LoadMaps(String tbl) throws Exception {
+	public int LoadMaps(String tbl) throws Exception {
 		Statement stmt = dbconn.createStatement();
+		Scanner scanner;
 		
-		File f = new File("sql/address_table_tmpl.sql");
+		File f = new File("resources/sql/address_table_tmpl.sql");
 		if ( ! f.exists() ) {
-			System.out.println("required table templates not found");
-		
-			return 0;
+			BufferedReader fin = new BufferedReader(
+				    new InputStreamReader(
+				        this.getClass().getClassLoader().getResourceAsStream(
+				            "resources/sql/address_table_tmpl.sql")));
+			scanner = new Scanner(new FileInputStream(f));
+		} else {
+			scanner = new Scanner(new FileInputStream(f));   
 		}
 		
 		StringBuilder sqlText = new StringBuilder();
 	    String NL = System.getProperty("line.separator");
-	    Scanner scanner = new Scanner(new FileInputStream(f));;
+	    
         String s = null;
         
 	    try {
@@ -256,11 +289,11 @@ public class Geodata {
 		
 		stmt.execute("INSERT INTO table_info( id,name,role,status) values (1,'"+ tbl + "','address','I')");
 
-		h2_import("addressmap", "sql/mapaddress.csv");
-		return h2_import("subaddressmap", "sql/mapsubaddress.csv");
+		h2_import("addressmap", "resources/sql/mapaddress.csv");
+		return h2_import("subaddressmap", "resources/sql/mapsubaddress.csv");
 		
 	}
-	public static int MapRawFlds (String tbl) throws Exception {
+	public int MapRawFlds (String tbl) throws Exception {
 
 		Statement stmt = dbconn.createStatement();
 		Statement stmt2 = dbconn.createStatement();
@@ -312,11 +345,11 @@ public class Geodata {
 	 * @throws Exception 
 	 */
 	public static void main(String[] args) throws Exception {
-      proj_name = new String("TestDB");
-      sproj_name = new String("testdb");
+		
+		Geodata g = new Geodata("TestDB", "testdb");
         
 	    try {				
-			Init();
+			g.Init();
 		} catch (SQLException e) {
 
 			e.printStackTrace();
@@ -324,9 +357,9 @@ public class Geodata {
 			e.printStackTrace();
 		}
 	    
-	    importSHP("/home/candrsn/data/sfi/cap/test/Export_Output.shp");
-	    LoadMaps("itab1");
-	    MapRawFlds("itab1");
+	    g.importSHP("/home/candrsn/data/sfi/cap/test/Export_Output.shp");
+	    g.LoadMaps("itab1");
+	    g.MapRawFlds("itab1");
 	    
 	    System.out.println("Complete");  
 	};
