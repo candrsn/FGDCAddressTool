@@ -25,5 +25,6 @@
 	<classpathentry exported="true" kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-filter-8.0-RC2.jar"/>
 	<classpathentry exported="true" kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-gml3-8.0-RC2.jar"/>
 	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/icu4j-3.4.4.jar"/>
+	<classpathentry kind="lib" path="/XStream/xstream-1.4.3/lib/xstream-1.4.3.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
