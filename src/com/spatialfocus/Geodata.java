@@ -98,7 +98,7 @@ public class Geodata {
 		 
 			Statement stmt2 = dbconn.createStatement();
 			
-			File f = new File("resources/sql/support_tables.sql");
+			File f = new File("sql/support_tables.sql");
 			if ( ! f.exists() ) {
 				System.out.println("required table templates not found");
 			
@@ -260,12 +260,12 @@ public class Geodata {
 		Statement stmt = dbconn.createStatement();
 		Scanner scanner;
 		
-		File f = new File("resources/sql/address_table_tmpl.sql");
+		File f = new File("sql/address_table_tmpl.sql");
 		if ( ! f.exists() ) {
 			BufferedReader fin = new BufferedReader(
 				    new InputStreamReader(
 				        this.getClass().getClassLoader().getResourceAsStream(
-				            "resources/sql/address_table_tmpl.sql")));
+				            "sql/address_table_tmpl.sql")));
 			scanner = new Scanner(new FileInputStream(f));
 		} else {
 			scanner = new Scanner(new FileInputStream(f));   
@@ -289,8 +289,8 @@ public class Geodata {
 		
 		stmt.execute("INSERT INTO table_info( id,name,role,status) values (1,'"+ tbl + "','address','I')");
 
-		h2_import("addressmap", "resources/sql/mapaddress.csv");
-		return h2_import("subaddressmap", "resources/sql/mapsubaddress.csv");
+		h2_import("addressmap", "sql/mapaddress.csv");
+		return h2_import("subaddressmap", "sql/mapsubaddress.csv");
 		
 	}
 	public int MapRawFlds (String tbl) throws Exception {
@@ -357,7 +357,7 @@ public class Geodata {
 			e.printStackTrace();
 		}
 	    
-	    g.importSHP("/home/candrsn/data/sfi/cap/test/Export_Output.shp");
+	    importSHP("/home/candrsn/data/sfi/cap/test/Export_Output.shp");
 	    g.LoadMaps("itab1");
 	    g.MapRawFlds("itab1");
 	    

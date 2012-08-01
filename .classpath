@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" path="src"/>
+	<classpathentry excluding="sql/" kind="src" path="src"/>
+	<classpathentry kind="src" path="resources"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry exported="true" kind="lib" path="/home/candrsn/java/h2-1.3.166.jar"/>
 	<classpathentry kind="lib" path="/home/candrsn/java/jackcess-1.2.6.jar"/>
@@ -19,10 +20,10 @@
 	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-property-8.0-RC2.jar"/>
 	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-shapefile-8.0-RC2.jar"/>
 	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xml-8.0-RC2.jar"/>
-	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-core-8.0-RC2.jar"/>
-	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-fes-8.0-RC2.jar"/>
-	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-filter-8.0-RC2.jar"/>
-	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-gml3-8.0-RC2.jar"/>
+	<classpathentry exported="true" kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-core-8.0-RC2.jar"/>
+	<classpathentry exported="true" kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-fes-8.0-RC2.jar"/>
+	<classpathentry exported="true" kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-filter-8.0-RC2.jar"/>
+	<classpathentry exported="true" kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/gt-xsd-gml3-8.0-RC2.jar"/>
 	<classpathentry kind="lib" path="/GEoTools_Download/geotools-8.0-RC2/icu4j-3.4.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

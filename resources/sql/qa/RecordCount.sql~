@@ -1,0 +1,5 @@
+SELECT 'The Number of entries is '||to_char(cnt)
+  FROM
+    (SELECT COUNT(*) as cnt
+       FROM address_core
+    );
