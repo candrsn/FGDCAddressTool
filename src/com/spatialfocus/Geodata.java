@@ -48,7 +48,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import org.geotools.*;
-import org.geotools.coverage.processing.operation.Log;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
 import org.geotools.data.shapefile.shp.JTSUtilities;
@@ -89,7 +88,13 @@ public class Geodata {
         String e = "\n\n";
         
 		java.util.Properties configFile = new java.util.Properties();
-		InputStream pf = this.getClass().getClassLoader().getResourceAsStream("AddressTool.properties");
+		InputStream pf;
+		File pfil = new File("resources/AddressTool.properties");
+		if ( ! pfil.exists()) {
+		  pf = this.getClass().getClassLoader().getResourceAsStream("AddressTool.properties");
+		} else {
+		  pf = new FileInputStream(pfil);	
+		}
 		if ( pf != null ) {
 			configFile.load(pf);
 		
@@ -268,36 +273,73 @@ public class Geodata {
     	return 1;
     }
     
-    public int runQA() throws Exception {
+    public int runQA(String tbl) throws Exception {
 		Statement stmt = dbconn.createStatement();
-		String s = "";
+		Statement stmtq = dbconn.createStatement();
+		String [] s = {"", "", "", ""};
 		String[] qas = QATests.split(" ");
 		File qar = new File(work_dir + "/" + evt_rpt);
 		FileWriter qafw = new FileWriter(qar);
 		
 		for(int i =0; i < qas.length ; i++) {
-			s = "";
+			s[0] = "";
 			File qf = new File("resources/sql/qa/" + qas[i] + ".sql");
 			if ( qf.exists() ) {
 			try {
 			    BufferedReader in = new BufferedReader(new FileReader(qf));
-			    String str;
+			    String str; int typ = 0;
 			    while ((str = in.readLine()) != null) {
-			        s = s.concat(str + "\n");
+			    	if (str.startsWith("--Setup")) {
+			    		typ = 1;
+			    		/* Throw away anything collected as a query so far */
+			    		s[0] = "";
+			    	}
+			    	if (str.startsWith("--Query")) {
+			    		typ = 0;
+			    	}
+			    	if (str.startsWith("--Cleanup")) {
+			    		typ = 2;
+			    	}
+			    	if (str.startsWith("--ReportNothing")) {
+			    		typ = 3;
+			    		/* Grab the next line for the body */
+			    		str = in.readLine().substring(3);
+			    	}			    	
+			        s[typ] = s[typ].concat(str + "\n");
 			    }
 			    in.close();
 			} catch (IOException e) {
 			}
+			s[0] = s[0].replace("%tablename%", tbl);
+			s[1] = s[1].replace("%tablename%", tbl);
+			s[2] = s[2].replace("%tablename%", tbl);
+			
+			System.out.println("QA Test " + qas[i] + " returned: ");
+			qafw.write("QA Test " + qas[i] + " returned: \n");
+			
+			if ( s[1].length() > 0 ) { stmtq.execute(s[1]); }
 			
 			String resv = "";
-			ResultSet rsm = stmt.executeQuery(s);     
-			if ( rsm.next() ) {
-			  resv = rsm.getObject(1).toString();
-			  }	
-			System.out.println("QA Test " + qas[i] + " returned: " + resv);
-			qafw.write("QA Test " + qas[i] + " returned: " + resv);
+			ResultSet rsm = stmt.executeQuery(s[0]); 
+			int rc = 0;
+			while ( rsm.next() ) {
+			  if ( rsm.getObject(1) != null ) {	
+			     resv = rsm.getObject(1).toString(); 
+			  } else {
+				 resv = qas[i] + ": Null";
+			  }
+			  System.out.println("    " + resv);
+			  qafw.write("     " + resv + "\n");
+			  rc ++;
+			}	
+			if ( rc == 0) {
+			  System.out.println("    " + s[3]);
+			  qafw.write("     " + s[3] + "\n");		  	
 			}
-		}
+			if ( s[2].length() > 0 ) { stmtq.execute(s[2]); }
+			qafw.write("\n\n");
+			} // qafile Exists
+		} // each qafile
 		if ( qafw != null) {
 		  qafw.flush();
 	  	  qafw.close();
@@ -323,6 +365,7 @@ public class Geodata {
 		     try {
 		         if((! shpFile.exists()) && (! shpFile.isFile())) {
 		             String message = "file is not found";
+		             System.out.println(message);
 		   //          throw new FileNotFoundException(message);
 		   // the geometry field is not strictly required          
 		         }
@@ -420,6 +463,10 @@ public class Geodata {
 		pw.close();
 		tw.close();
 		
+		
+		collection.close(iterator);
+		iterator.close();
+		
 		h2_import("rawdata", "tmp/workread.csv");
 		
 		File f = new File("tmp/workread.csv");
@@ -496,7 +543,7 @@ public class Geodata {
 		String sra = "ADDRESSID";
         
         ResultSet rs = stmt.executeQuery("Select * from addressmap where tableid = " +
-                  "(SELECT id from table_info where name = '" + tbl + "_prelim')");  
+                  "(SELECT id from table_info where name = '" + tbl + "_prelim') ORDER BY MAP");  
 		
 		while ( rs.next() ) {
 			si = si + sep + rs.getObject("MAP");
@@ -520,9 +567,10 @@ public class Geodata {
 		while ( rs.next() ) {
 			si = "ADDRESSID" + sep + rs.getObject("MAP") + ",subaddresstype ";
 			sr = sra + sep + rs.getObject("RAW") + ",'" + rs.getObject("RAW") + "'";
+			String sf = rs.getObject("RAW").toString();
 			
 			s = "INSERT INTO " + tbl + "_subaddress" + "(" + si + " )" +
-					   "(SELECT " + sr + " FROM RawData )";
+					   "(SELECT " + sr + " FROM RawData WHERE " + sf + " is not null)";
 			stmt2.execute(s);
 		}
 		
@@ -1058,7 +1106,7 @@ public class Geodata {
 		    g.applyAbbr("address");
 		    g.applyTransforms("address");
 		    
-		    g.runQA();
+		    g.runQA("address");
 		    
 			Document doc = null;
 			g.export_address(doc);

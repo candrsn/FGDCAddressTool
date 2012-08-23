@@ -1,5 +1,5 @@
-SELECT 'The Number of entries is '||cnt
+SELECT 'The number of address entries is '||cnt
   FROM
     (SELECT COUNT(*) as cnt
-       FROM address_core
+       FROM %tablename%_core
     );
