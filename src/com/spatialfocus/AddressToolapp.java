@@ -11,6 +11,7 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Device;
+import com.spatialfocus.*;
 
 public class AddressToolapp {
 
@@ -36,7 +37,7 @@ public class AddressToolapp {
 		final Shell shell = new Shell();
 		shell.setSize(450, 300);
 		shell.setText("FGDC Address Tool");
-		shell.setLayout(new FormLayout());
+		shell.setLayout(null);
 
 		Menu menu = new Menu(shell, SWT.BAR);
 		shell.setMenuBar(menu);
@@ -125,6 +126,12 @@ public class AddressToolapp {
 		mntmWelcome.setText("Welcome");
 
 		MenuItem mntmHelpContents = new MenuItem(menu_3, SWT.NONE);
+		mntmHelpContents.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				BareBonesBrowserLaunch.openURL("http://meadow.spatialfocus.com/address_standard");
+			}
+		});
 		mntmHelpContents.setText("Help Contents");
 
 		MenuItem mntmCheatSheets = new MenuItem(menu_3, SWT.NONE);

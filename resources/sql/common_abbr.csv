@@ -1,4 +1,8 @@
 "StreetType"	"Abbr"	"Filter"
+EAST	E	
+WEST	W	
+SOUTH	S	
+NORTH	N	
 ALLEY	ALY	
 ANNEX	ANX	
 ARCADE	ARC	

@@ -5,6 +5,7 @@
 CREATE TEMP TABLE QA_tmp as (
   SELECT
       a.addressid,
+      regexp_replace(
       a.addressnumberprefix || ' ' ||
       a.addressnumber || ' ' ||
       a.addressnumbersuffix || ' ' ||
@@ -15,11 +16,13 @@ CREATE TEMP TABLE QA_tmp as (
       a.streetnameposttype || ' ' ||
       a.streetnamepostdirectional || ' ' ||
       a.streetnamepostmodifier || ' ' ||
-      coalesce(o.subaddressid,'')
+      coalesce(o.subaddressid,''),'  +',' ')
        as element
     FROM       
        %tablename%_core a LEFT OUTER JOIN
-       %tablename%_subaddress o on (a.addressid = o.addressid and o.subaddressorder = 1)
+       (SELECT GROUP_CONCAT(subaddressid order by subaddressorder SEPARATOR '-') as subaddressid, addressid 
+          FROM %tablename%_subaddress
+          GROUP BY addressid ) as o on (a.addressid = o.addressid)
 );
 CREATE INDEX qa_tmp__element__ind on qa_tmp(element);
 

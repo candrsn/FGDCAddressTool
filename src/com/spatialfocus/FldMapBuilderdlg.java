@@ -3,16 +3,16 @@ package com.spatialfocus;
 import org.eclipse.swt.widgets.Dialog;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
-import swing2swt.layout.BorderLayout;
 import org.eclipse.swt.custom.CLabel;
 import org.eclipse.swt.SWT;
-import swing2swt.layout.FlowLayout;
+
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
+import org.eclipse.swt.widgets.Combo;
 
 public class FldMapBuilderdlg extends Dialog {
 
