@@ -1,4 +1,3 @@
 "TABLEID"	"RAW"	"MAP"
-1	CITY	MunicipalJurisdiction
-1	COUNTY	County
-1	NBHD	Neighborhood
+1	USPS_CITY	USPS
+
