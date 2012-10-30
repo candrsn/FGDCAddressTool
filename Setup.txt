@@ -1,0 +1,44 @@
+
+To setup a build environment
+
+Download the git project from http://www.github.com/candrsn/FGDCAddressTool
+
+Unpack the project into a directory
+Import the directory into eclipse ( use filesystem import )
+
+Create a new project Extras
+Download the external libraries or grab the file FGDCAddressTool_Extras.zip
+
+You should now be able to build the AddressTool project
+
+The CLI version uses  Geodata as the base class in the jar file
+THE GUI version uses  AddressToolapp as the base class in the jar file
+
+
+
+The classpath of the external libraries ued b the CLI version.
+
+
+<classpath>
+        <classpathentry excluding="sql/" kind="src" path="src"/>
+        <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/h2/h2-1.3.166.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/swt.gtk.linux.x86-3.6.1.v3655c.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/javacsv/javacsv.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/ecore-2.6.1.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.properties"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jdom-1.0.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jsr-275-1.0-beta-2.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jts4jaspa.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/picocontainer-1.2.jar"/>
+        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/vecmath-1.3.2.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/commons-io-2.1.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/gt-api-8.2.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/gt-cql-8.2.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/gt-data-8.2.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/gt-main-8.2.jar"/>
+        <classpathentry kind="lib" path="/Extras/geotools-8.2/gt-shapefile-8.2.jar"/>
+        <classpathentry kind="output" path="bin"/>
+</classpath>
+
