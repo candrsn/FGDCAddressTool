@@ -88,10 +88,10 @@ public class Geodata {
 
 		java.util.Properties configFile = new java.util.Properties();
 		InputStream pf;
-		File pfil = new File("resources/AddressTool.properties");
+		File pfil = new File("AddressTool.properties");
 		if (!pfil.exists()) {
 			pf = this.getClass().getClassLoader()
-					.getResourceAsStream("AddressTool.properties");
+				.getResourceAsStream("AddressTool_default.properties");
 		} else {
 			pf = new FileInputStream(pfil);
 		}

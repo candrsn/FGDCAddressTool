@@ -2,14 +2,22 @@
 <classpath>
 	<classpathentry excluding="sql/" kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry exported="true" kind="lib" path="/Extras/geotools-8.0-RC2/gt-api-8.0-RC2.jar"/>
-	<classpathentry exported="true" kind="lib" path="/Extras/geotools-8.0-RC2/gt-cql-8.0-RC2.jar"/>
-	<classpathentry exported="true" kind="lib" path="/Extras/geotools-8.0-RC2/gt-data-8.0-RC2.jar"/>
-	<classpathentry exported="true" kind="lib" path="/Extras/geotools-8.0-RC2/gt-main-8.0-RC2.jar"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/h2/h2-1.3.166.jar"/>
-	<classpathentry exported="true" kind="lib" path="/Extras/geotools-8.0-RC2/gt-shapefile-8.0-RC2.jar"/>
-	<classpathentry kind="lib" path="/Extras/geotools-8.0-RC2/swt.gtk.linux.x86-3.6.1.v3655c.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/swt.gtk.linux.x86-3.6.1.v3655c.jar"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/javacsv/javacsv.jar"/>
-	<classpathentry kind="lib" path="/Extras/geotools-8.0-RC2/commons-io-2.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/ecore-2.6.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.properties"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jdom-1.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jsr-275-1.0-beta-2.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jts4jaspa.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/picocontainer-1.2.jar"/>
+	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/vecmath-1.3.2.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/commons-io-2.1.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/gt-api-8.2.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/gt-cql-8.2.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/gt-data-8.2.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/gt-main-8.2.jar"/>
+	<classpathentry kind="lib" path="/Extras/geotools-8.2/gt-shapefile-8.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
