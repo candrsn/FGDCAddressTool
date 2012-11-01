@@ -56,26 +56,28 @@ import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.data.simple.SimpleFeatureSource;
 
+import com.spatialfocus.gui.AddressToolapp;
 import com.vividsolutions.jts.geom.Geometry;
 
 public class Geodata {
 	static Connection dbconn = null;
-	String work_dir = "projects";
-	String proj_name = null;
-	String sproj_name = null;
+	String workDir = "projects";
+	String projName = null;
+	String sprojName = null;
 	String operationMode = "";
 	String evt_xml = "address_pkg.xml";
 	String evt_met = "address_met.xml";
 	String evt_rpt = "address_rpt.txt";
-	String AddressData, AbbrvData, AddrFldMap, SubAddrFldMap, PlaceFldMap,
-			AliasData, ExpertParsingData;
-	String QATests, Transforms, ZoneField = "ZIPCODE";
+	String addressDataFile, abbreviationDataTable, addressFieldMap,
+			subAddrFldMap, placeFldMap, aliasDataTable, expertParsingData;
+	String qATestList, transformList, zoneField = "ZIPCODE";
+	String validModes = "'initialize'transform'qa'publish'exportfiles'";
 
 	public Geodata(String longName, String shortName) throws Exception {
 
 		// Get some default names
-		proj_name = longName;
-		sproj_name = shortName;
+		projName = longName;
+		sprojName = shortName;
 
 		// Load the user settings
 		getParams();
@@ -89,59 +91,64 @@ public class Geodata {
 		java.util.Properties configFile = new java.util.Properties();
 		InputStream pf;
 		File pfil = new File("AddressTool.properties");
-		if (!pfil.exists()) {
-			pf = this.getClass().getClassLoader()
-				.getResourceAsStream("AddressTool_default.properties");
-		} else {
+		if ( pfil.exists() ) {
 			pf = new FileInputStream(pfil);
+		} else {	
+			pf = this.getClass().getClassLoader()
+					.getResourceAsStream("AddressTool.properties");
+			if ( pf == null ) {
+				pf = this.getClass().getClassLoader()
+						.getResourceAsStream("AddressTool_default.properties");
+			}
 		}
+		
 		if (pf != null) {
 			configFile.load(pf);
 
 			operationMode = configFile.getProperty("OperationMode");
-			work_dir = configFile.getProperty("work_dir");
-			proj_name = configFile.getProperty("ProjectName");
-			sproj_name = configFile.getProperty("ShortName");
-			AddressData = configFile.getProperty("AddressData");
-			AbbrvData = configFile.getProperty("AbbreviationsFile");
-			AddrFldMap = configFile.getProperty("AddressFieldMap");
-			PlaceFldMap = configFile.getProperty("PlaceFieldMap");
-			SubAddrFldMap = configFile.getProperty("SubAddressFieldMap");
-			AliasData = configFile.getProperty("AliasData");
+			workDir = configFile.getProperty("work_dir");
+			projName = configFile.getProperty("ProjectName");
+			sprojName = configFile.getProperty("ShortName");
+			addressDataFile = configFile.getProperty("AddressData");
+			abbreviationDataTable = configFile.getProperty("AbbreviationsFile");
+			addressFieldMap = configFile.getProperty("AddressFieldMap");
+			placeFldMap = configFile.getProperty("PlaceFieldMap");
+			subAddrFldMap = configFile.getProperty("SubAddressFieldMap");
+			aliasDataTable = configFile.getProperty("AliasData");
 
-			ExpertParsingData = configFile.getProperty("ExpertParsingData");
+			expertParsingData = configFile.getProperty("ExpertParsingData");
 
-			QATests = configFile.getProperty("QATests");
-			Transforms = configFile.getProperty("Transforms");
-			ZoneField = configFile.getProperty("ZoneField");
+			qATestList = configFile.getProperty("QATests");
+			transformList = configFile.getProperty("Transforms");
+			zoneField = configFile.getProperty("ZoneField");
 
-			File f = new File(AliasData);
+			File f = new File(aliasDataTable);
 			if (!f.exists()) {
-				e = e.concat("Address Alias Data " + AliasData
+				e.concat("Address Alias Data " + aliasDataTable
 						+ " not found \n");
 				paramsOk = false;
 			}
-			f = new File(AbbrvData);
+			f = new File(abbreviationDataTable);
 			if (!f.exists()) {
-				e = e.concat("Abbreviations Data " + AbbrvData
+				e = e.concat("Abbreviations Data " + abbreviationDataTable
 						+ " not found \n");
 				paramsOk = false;
 			}
-			f = new File(AddrFldMap);
+			f = new File(addressFieldMap);
 			if (!f.exists()) {
-				e = e.concat("Address Field Mapping Data " + AddrFldMap
+				e = e.concat("Address Field Mapping Data " + addressFieldMap
 						+ " not found \n");
 				paramsOk = false;
 			}
-			f = new File(SubAddrFldMap);
+			f = new File(subAddrFldMap);
 			if (!f.exists()) {
-				e = e.concat("Occupancy Field Mapping Data " + SubAddrFldMap
+				e = e.concat("Occupancy Field Mapping Data " + subAddrFldMap
 						+ " not found \n");
 				paramsOk = false;
 			}
-			f = new File(PlaceFldMap);
+			f = new File(placeFldMap);
 			if (!f.exists()) {
-				e = e.concat("PlaceName Field Mapping Data " + PlaceFldMap
+				e = e.concat("PlaceName Field Mapping Data " + placeFldMap
 						+ " not found \n");
 				paramsOk = false;
 
@@ -149,45 +156,50 @@ public class Geodata {
 
 		} else {
 
-			AbbrvData = "resources/sql/common_abbr.csv";
-			AddrFldMap = "resources/sql/mapaddress.csv";
-			SubAddrFldMap = "resources/sql/mapsubaddress.csv";
-			AliasData = "resources/sql/common_alias.csv";
-			ExpertParsingData = null;
+			abbreviationDataTable = "resources/sql/common_abbr.csv";
+			addressFieldMap = "resources/sql/mapaddress.csv";
+			subAddrFldMap = "resources/sql/mapsubaddress.csv";
+			aliasDataTable = "resources/sql/common_alias.csv";
+			expertParsingData = null;
 
 		}
 
-		File f = new File(AddressData);
+		File f = new File(addressDataFile);
 		if (!f.exists()) {
-			e.concat("Address Data " + AddressData + " not found \n");
+			e = e.concat("Address Data " + addressDataFile + " not found \n");
 			paramsOk = false;
 		}
-		if (!operationMode.equals("publish")) {
-			e.concat("Operational Mode " + operationMode + " not supported\n");
+		if ( ! validModes.contains("'" + operationMode + "'")) {
+			e = e.concat("Operational Mode " + operationMode
+					+ " not supported\n");
 			paramsOk = false;
 		}
 		if (!paramsOk) {
 			throw new FileNotFoundException(e + "\n" + "   Exiting");
 		}
-		evt_xml = sproj_name + "_pkg.xml";
-		evt_met = sproj_name + "_met.xml";
-		evt_rpt = sproj_name + "_rpt.txt";
+		evt_xml = sprojName + "_pkg.xml";
+		evt_met = sprojName + "_met.xml";
+		evt_rpt = sprojName + "_rpt.txt";
+		
+		if ( pf != null ) {
+			pf.close();
+		}
 
 	}
 
-	public int Init() throws SQLException, Exception {
+	public int initProject() throws SQLException, Exception {
 		int needInit = 1;
-		File f = new File(work_dir + "/" + sproj_name + ".h2.db");
+		File f = new File(workDir + "/" + sprojName + ".h2.db");
 
 		if (f.exists()) {
 			needInit = 1;
 			f.delete();
-			f = new File(work_dir + "/" + sproj_name + ".h2.db");
+			f = new File(workDir + "/" + sprojName + ".h2.db");
 		}
 		if (dbconn == null || !dbconn.isValid(500)) {
 			Class.forName("org.h2.Driver");
-			dbconn = DriverManager.getConnection("jdbc:h2:" + work_dir + "/"
-					+ sproj_name, "sa", "");
+			dbconn = DriverManager.getConnection("jdbc:h2:" + workDir + "/"
+					+ sprojName, "sa", "");
 
 			if (needInit == 1) {
 				createSupportTables();
@@ -221,9 +233,9 @@ public class Geodata {
 		stmt2.execute(sqlText.toString());
 		stmt2.execute("INSERT INTO project_log (log) values('Address Tool - 0.0.4')");
 		stmt2.execute("INSERT INTO project_log (log) values('Project - "
-				+ proj_name + "')");
+				+ projName + "')");
 		stmt2.execute("INSERT INTO project_log (log) values('Short Name - "
-				+ sproj_name + "')");
+				+ sprojName + "')");
 
 		return 1;
 	}
@@ -257,7 +269,7 @@ public class Geodata {
 	public int applyTransforms(String tbl) throws Exception {
 		Statement stmt = dbconn.createStatement();
 		String s = "";
-		String[] tas = Transforms.split(" ");
+		String[] tas = transformList.split(" ");
 
 		for (int i = 0; i < tas.length; i++) {
 			s = "";
@@ -284,8 +296,8 @@ public class Geodata {
 		Statement stmt = dbconn.createStatement();
 		Statement stmtq = dbconn.createStatement();
 		String[] s = { "", "", "", "" };
-		String[] qas = QATests.split(" ");
-		File qar = new File(work_dir + "/" + evt_rpt);
+		String[] qas = qATestList.split(" ");
+		File qar = new File(workDir + "/" + evt_rpt);
 		FileWriter qafw = new FileWriter(qar);
 
 		for (int i = 0; i < qas.length; i++) {
@@ -360,12 +372,12 @@ public class Geodata {
 		return 1;
 	}
 
-	public int buildInfo(String tbl, String script) throws Exception {
+	public int buildInfoTables(String tbl, String script) throws Exception {
 		Statement stmt = dbconn.createStatement();
 		Statement stmtq = dbconn.createStatement();
 		String[] s = { "", "", "", "" };
 		String[] qas = script.split(" ");
-		File qar = new File(work_dir + "/q" + evt_rpt);
+		File qar = new File(workDir + "/q" + evt_rpt);
 		FileWriter qafw = new FileWriter(qar);
 
 		for (int i = 0; i < qas.length; i++) {
@@ -399,7 +411,7 @@ public class Geodata {
 				} catch (IOException e) {
 				}
 				s[0] = s[0].replace("%tablename%", tbl);
-				s[0] = s[0].replace("%zonefield%", ZoneField);
+				s[0] = s[0].replace("%zonefield%", zoneField);
 
 				s[1] = s[1].replace("%tablename%", tbl);
 				s[2] = s[2].replace("%tablename%", tbl);
@@ -491,6 +503,12 @@ public class Geodata {
 		return featureSource;
 	}
 
+	public void exportTable(String filePath, String Table) {
+		// do something
+
+	};
+	
+	@SuppressWarnings("deprecation")
 	public void importGIS(String shpFilePath) throws Exception {
 		int warningCount = 0;
 		String swkt = null;
@@ -581,7 +599,7 @@ public class Geodata {
 		return 1;
 	}
 
-	public int LoadMaps(String tbl) throws Exception {
+	public int loadMaps(String tbl) throws Exception {
 		Statement stmt = dbconn.createStatement();
 		Scanner scanner;
 
@@ -618,17 +636,17 @@ public class Geodata {
 		stmt.execute("INSERT INTO table_info( id,name,role,status) values (1,'"
 				+ tbl + "_prelim" + "','address','I')");
 
-		h2_import("abbrmap", AbbrvData);
-		h2_import("addressmap", AddrFldMap);
-		h2_import("subaddressmap", SubAddrFldMap);
-		h2_import("aliasmap", AliasData);
-		h2_import("placemap", PlaceFldMap);
-		h2_import("expertparsing", ExpertParsingData);
+		h2_import("abbrmap", abbreviationDataTable);
+		h2_import("addressmap", addressFieldMap);
+		h2_import("subaddressmap", subAddrFldMap);
+		h2_import("aliasmap", aliasDataTable);
+		h2_import("placemap", placeFldMap);
+		h2_import("expertparsing", expertParsingData);
 
 		return 1;
 	}
 
-	public int MapRawFlds(String tbl) throws Exception {
+	public int mapRawFlds(String tbl) throws Exception {
 
 		Statement stmt = dbconn.createStatement();
 		Statement stmt2 = dbconn.createStatement();
@@ -1132,7 +1150,7 @@ public class Geodata {
 					.newInstance();
 			Transformer transformer = transformerFactory.newTransformer();
 			DOMSource source = new DOMSource(doc);
-			StreamResult result = new StreamResult(new File(work_dir + "/"
+			StreamResult result = new StreamResult(new File(workDir + "/"
 					+ evt_xml));
 
 			// Output to console for testing
@@ -1149,7 +1167,7 @@ public class Geodata {
 		return 1;
 	}
 
-	public Document export_address(Document doc) throws Exception {
+	public Document exportXML(Document doc) throws Exception {
 
 		Statement stmt = dbconn.createStatement();
 		Statement stmt2 = dbconn.createStatement();
@@ -1212,20 +1230,30 @@ public class Geodata {
 		} else {
 
 			try {
-				g.Init();
-				g.importGIS("data/Export_Output.shp");
-				g.LoadMaps("address");
-				g.MapRawFlds("address");
-				g.applyAbbr("address");
-				g.applyTransforms("address");
+				g.initProject();
+				if (g.operationMode != "init") {
+					g.importGIS("data/Export_Output.shp");
+					g.loadMaps("address");
+					g.mapRawFlds("address");
+					g.applyAbbr("address");
+					g.applyTransforms("address");
 
-				g.runQA("address");
+		//			g.buildInfoTables("address", "MSAG_gr");
 
-				g.buildInfo("address", "MSAG_gr");
+					g.runQA("address");
 
-				Document doc = null;
-				g.export_address(doc);
+					if (g.operationMode != "qa") {
+						if (g.operationMode == "exportfiles") {
+				//			g.exportTable(g.workDir + "MSAG", "address.MSAG_gr");
+							
+						}
 
+						if (g.operationMode == "publish") {
+							Document doc = null;
+							g.exportXML(doc);
+						}
+					}
+				}
 				System.out.println("Complete");
 
 			} catch (SQLException e) {
@@ -1237,6 +1265,8 @@ public class Geodata {
 			}
 		}
 
-	};
+	}
+
+
 
 }

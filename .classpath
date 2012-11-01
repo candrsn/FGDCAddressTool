@@ -7,7 +7,6 @@
 	<classpathentry exported="true" kind="lib" path="/Extras/javacsv/javacsv.jar"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/ecore-2.6.1.jar"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.jar"/>
-	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.properties"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jdom-1.0.jar"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jsr-275-1.0-beta-2.jar"/>
 	<classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jts4jaspa.jar"/>
