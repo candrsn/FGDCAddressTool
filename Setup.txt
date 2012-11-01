@@ -16,7 +16,7 @@ THE GUI version uses  AddressToolapp as the base class in the jar file
 
 
 
-The classpath of the external libraries ued b the CLI version.
+The classpath of the external libraries used by the CLI version.
 
 
 <classpath>
@@ -27,7 +27,6 @@ The classpath of the external libraries ued b the CLI version.
         <classpathentry exported="true" kind="lib" path="/Extras/javacsv/javacsv.jar"/>
         <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/ecore-2.6.1.jar"/>
         <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.jar"/>
-        <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jaspa.properties"/>
         <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jdom-1.0.jar"/>
         <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jsr-275-1.0-beta-2.jar"/>
         <classpathentry exported="true" kind="lib" path="/Extras/jaspa/lib/jts4jaspa.jar"/>
