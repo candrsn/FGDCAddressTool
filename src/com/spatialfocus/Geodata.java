@@ -189,7 +189,20 @@ public class Geodata {
 
 	public int initProject() throws SQLException, Exception {
 		int needInit = 1;
-		File f = new File(workDir + "/" + sprojName + ".h2.db");
+		// make sure that workDir exists and is writeable
+		File f = new File(workDir);
+		if ( workDir == null || workDir.equals("")  || ( ! f.canWrite() ) ) {
+			System.out.println("Working directory " + workDir + " must exist and be writeable.");
+			return 0;
+		}
+		
+		f = new File(workDir + "/tmp");
+		if ( f.mkdir() ) {
+			System.out.println("Unable to create temp directory: " + workDir + "/tmp.");
+			return 0;
+		}
+		
+		f = new File(workDir + "/" + sprojName + ".h2.db");
 
 		if (f.exists()) {
 			needInit = 1;
@@ -1230,7 +1243,7 @@ public class Geodata {
 		} else {
 
 			try {
-				g.initProject();
+				if ( g.initProject() != 1 ) {
 				if (g.operationMode != "init") {
 					g.importGIS("data/Export_Output.shp");
 					g.loadMaps("address");
@@ -1255,6 +1268,7 @@ public class Geodata {
 					}
 				}
 				System.out.println("Complete");
+				}
 
 			} catch (SQLException e) {
 				System.out.print(e.getMessage());
