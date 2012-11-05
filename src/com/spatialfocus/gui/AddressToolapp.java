@@ -1,5 +1,10 @@
 package com.spatialfocus.gui;
 
+import java.io.File;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.MessageBox;
@@ -23,10 +28,45 @@ public class AddressToolapp {
 	public static void main(String[] args) {
 		try {
 			AddressToolapp window = new AddressToolapp();
+			window.loadSwtJar();
 			window.open();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private void loadSwtJar() {
+		String swtFileName = "";
+		String swtVer = "3.6.1.v3655c";
+	    try {
+	        String osName = System.getProperty("os.name").toLowerCase();
+	        String osArch = System.getProperty("os.arch").toLowerCase();
+	        URLClassLoader classLoader = (URLClassLoader) getClass().getClassLoader();
+	        java.lang.reflect.Method addUrlMethod = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+	        addUrlMethod.setAccessible(true);
+
+	        String swtFileNameOsPart = 
+	            osName.contains("win") ? "win32.win32.x86_64" :
+//	            osName.contains("mac") ? "macosx" :
+	            osName.contains("linux") || osName.contains("nix") ? "gtk.linux.x86" :
+	            ""; // throw new RuntimeException("Unknown OS name: "+osName)
+
+	        swtFileName = "swt."+swtFileNameOsPart+"-"+swtVer+".jar";
+	        
+	        File swtFile = new File(swtFileName);
+	        URL url = swtFile.toURI().toURL(); 
+	        URLClassLoader urlClassLoader = (URLClassLoader) ClassLoader.getSystemClassLoader(); 
+	        Class<?> urlClass = URLClassLoader.class; 
+	        Method method = urlClass.getDeclaredMethod("addURL", new Class<?>[] { URL.class }); 
+	        method.setAccessible(true);         
+	        method.invoke(urlClassLoader, new Object[] { url });    	    
+	    
+	    
+	    }
+	    catch(Exception e) {
+	        System.out.println("Unable to add the swt jar to the class path: "+swtFileName);
+	        e.printStackTrace();
+	    }
 	}
 
 	/**
