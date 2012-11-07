@@ -20,6 +20,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -48,6 +49,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import org.geotools.*;
+import org.geotools.data.DataAccess;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
 import org.geotools.data.shapefile.shp.JTSUtilities;
@@ -76,6 +78,7 @@ public class Geodata {
 	public Geodata(String longName, String shortName) throws Exception {
 
 		// Get some default names
+
 		projName = longName;
 		sprojName = shortName;
 
@@ -90,7 +93,7 @@ public class Geodata {
 
 		java.util.Properties configFile = new java.util.Properties();
 		InputStream pf;
-		File pfil = new File("AddressTool.properties");
+		File pfil = new File("./AddressTool.properties");
 		if ( pfil.exists() ) {
 			pf = new FileInputStream(pfil);
 		} else {	
@@ -197,7 +200,7 @@ public class Geodata {
 		}
 		
 		f = new File(workDir + "/tmp");
-		if ( f.mkdir() ) {
+		if ( (! f.exists()) || f.mkdir() ) {
 			System.out.println("Unable to create temp directory: " + workDir + "/tmp.");
 			return 0;
 		}
@@ -244,7 +247,7 @@ public class Geodata {
 		}
 
 		stmt2.execute(sqlText.toString());
-		stmt2.execute("INSERT INTO project_log (log) values('Address Tool - 0.0.4')");
+		stmt2.execute("INSERT INTO project_log (log) values('Address Tool - 0.0.5')");
 		stmt2.execute("INSERT INTO project_log (log) values('Project - "
 				+ projName + "')");
 		stmt2.execute("INSERT INTO project_log (log) values('Short Name - "
@@ -467,7 +470,7 @@ public class Geodata {
 		return 1;
 	}
 
-	public static Integer h2_stmt(String smt) throws Exception {
+	public static Integer h2Stmt(String smt) throws Exception {
 
 		if (dbconn.createStatement().execute(smt))
 			return 0;
@@ -533,7 +536,7 @@ public class Geodata {
 		String val;
 		String nam;
 		String sep = "";
-		FileWriter tw = new FileWriter("tmp/workread.csv");
+		FileWriter tw = new FileWriter(workDir + "/tmp/workread.csv");
 		PrintWriter pw = new PrintWriter(tw);
 
 		SimpleFeatureType fT = collection.getSchema();
@@ -592,10 +595,13 @@ public class Geodata {
 
 		collection.close(iterator);
 		iterator.close();
+		DataAccess<SimpleFeatureType, SimpleFeature> ds = featureSource.getDataStore();
+		
+		ds.dispose();
 
-		h2_import("rawdata", "tmp/workread.csv");
+		h2Import("rawdata", workDir + "/tmp/workread.csv");
 
-		File f = new File("tmp/workread.csv");
+		File f = new File(workDir + "/tmp/workread.csv");
 		f.deleteOnExit();
 
 		Statement stmt = dbconn.createStatement();
@@ -603,10 +609,10 @@ public class Geodata {
 
 	}
 
-	public static int h2_import(String ctable, String cfile) throws Exception {
+	public static int h2Import(String ctable, String cfile) throws Exception {
 
-		h2_stmt("Drop TABLE if Exists " + ctable + ";");
-		h2_stmt("CREATE TABLE " + ctable + " as (SELECT *  FROM CSVREAD('"
+		h2Stmt("Drop TABLE if Exists " + ctable + ";");
+		h2Stmt("CREATE TABLE " + ctable + " as (SELECT *  FROM CSVREAD('"
 				+ cfile + "', null, 'fieldSeparator=' || CHAR(9)));");
 
 		return 1;
@@ -649,12 +655,12 @@ public class Geodata {
 		stmt.execute("INSERT INTO table_info( id,name,role,status) values (1,'"
 				+ tbl + "_prelim" + "','address','I')");
 
-		h2_import("abbrmap", abbreviationDataTable);
-		h2_import("addressmap", addressFieldMap);
-		h2_import("subaddressmap", subAddrFldMap);
-		h2_import("aliasmap", aliasDataTable);
-		h2_import("placemap", placeFldMap);
-		h2_import("expertparsing", expertParsingData);
+		h2Import("abbrmap", abbreviationDataTable);
+		h2Import("addressmap", addressFieldMap);
+		h2Import("subaddressmap", subAddrFldMap);
+		h2Import("aliasmap", aliasDataTable);
+		h2Import("placemap", placeFldMap);
+		h2Import("expertparsing", expertParsingData);
 
 		return 1;
 	}
@@ -708,9 +714,36 @@ public class Geodata {
 					+ " is not null)";
 			stmt2.execute(s);
 		}
+		
 
+		// Now Place elements
+		rs = stmt
+				.executeQuery("Select * from placemap where tableid = "
+						+ "(SELECT id from table_info where name = '" + tbl
+						+ "_core')");
+
+		sep = ",";
+		while (rs.next()) {
+			si = "ADDRESSID" + sep + "placename" + ",placenametype ";
+			sr = sra + sep + rs.getObject("RAW") + ",'" + rs.getObject("MAP")
+					+ "'";
+			String sf = rs.getObject("RAW").toString();
+
+			s = "INSERT INTO " + tbl + "_place" + "(" + si + " )"
+					+ "(SELECT " + sr + " FROM RawData WHERE " + sf
+					+ " is not null)";
+			stmt2.execute(s);
+		}
+		
+		
+		// Now the rest of Core
 		stmt.execute("INSERT INTO " + tbl + "_core (SELECT * from " + tbl
 				+ "_prelim )");
+		
+		
+
+		
+		
 		return 1;
 
 	}
@@ -778,7 +811,7 @@ public class Geodata {
 	};
 
 	public Document writeXMLRow(Document doc, Map<String, Object> row,
-			Map<String, Object> rowplc, Map<String, Object> rowocc,
+			ArrayList<HashMap<String, Object>> rowplc, ArrayList<HashMap<String, Object>> rowocc,
 			Map<String, Object> rowalias) {
 
 		Object s = null;
@@ -880,29 +913,32 @@ public class Geodata {
 				}
 			} else {
 				can = doc.createElement("CompletePlaceName");
-				s = rowplc.get("CommunityName");
-				if (s != null) {
-					cac = doc.createElement("PlaceName");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					attr = doc.createAttribute("PlaceNameType");
-					attr.setValue("USPSCommunity");
-					cac.setAttributeNode(attr);
+				for ( int si=0; si < rowplc.size(); si++ ) {
+					
 				}
-				s = rowplc.get("CityName");
-				if (s != null) {
-					cac = doc.createElement("PlaceName");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					attr = doc.createAttribute("PlaceNameType");
-					attr.setValue("MunicipalJurisdiction");
-					cac.setAttributeNode(attr);
-				}
-				s = rowplc.get("County");
-				if (s != null) {
-					cac = doc.createElement("PlaceName");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					attr = doc.createAttribute("PlaceNameType");
-					attr.setValue("County");
-					cac.setAttributeNode(attr);
+
+				// USPSCommunityName
+				// MunicipalJurisdiction
+				// County
+				for ( int si=0; si < rowplc.size(); si++) {
+					HashMap<String, Object> sc = rowplc.get(si);
+					String pn = sc.get("placename").toString();
+					String pt = sc.get("placenametype").toString();
+					String po = sc.get("placenameorder").toString();
+					if (pn != null) {
+						cac = doc.createElement("PlaceName");
+						cac.appendChild(doc.createTextNode(pn));
+					
+						attr = doc.createAttribute("PlaceNameType");
+						attr.setValue(pt);
+						cac.setAttributeNode(attr);
+					
+						if ( ! po.equals("") ) {
+							attr = doc.createAttribute("PlaceNameOrder");
+							attr.setValue(po);
+							cac.setAttributeNode(attr);		
+						}
+					}
 				}
 
 				s = row.get("statename");
@@ -1184,17 +1220,18 @@ public class Geodata {
 
 		Statement stmt = dbconn.createStatement();
 		Statement stmt2 = dbconn.createStatement();
-
 		String sql = "";
+		ResultSet subsrs;
+		ResultSetMetaData subrsm;
 
-		//
+		//Get data from Core
 		ResultSet srs = stmt.executeQuery("SELECT * from address_core");
 		ResultSetMetaData rsm = srs.getMetaData();
 
 		// Start Feed
 		Map<String, Object> row = new HashMap<String, Object>();
-		Map<String, Object> rowplc = new HashMap<String, Object>();
-		Map<String, Object> rowocc = new HashMap<String, Object>();
+		ArrayList<HashMap<String, Object>> rowplc = new ArrayList<HashMap<String, Object>>();
+		ArrayList<HashMap<String, Object>> rowocc = new ArrayList<HashMap<String, Object>>();
 		Map<String, Object> rowalias = new HashMap<String, Object>();
 
 		while (srs.next()) {
@@ -1205,6 +1242,37 @@ public class Geodata {
 			if (srs.isFirst())
 				doc = writeXMLHdr(row);
 
+			rowplc.clear();
+			//Get data from place
+			subsrs = stmt2.executeQuery("SELECT placename, placenametype, placenameorder from address_place " +
+					" WHERE ADDRESSID = '" + row.get("addressid") + "' " +
+					" ORDER BY placenameorder");
+			subrsm = subsrs.getMetaData();
+			while (subsrs.next()) {
+				HashMap<String, Object> phm = new HashMap<String, Object>();
+				for (int i = 1; i <= subrsm.getColumnCount(); i++) {
+					phm.put(subrsm.getColumnName(i).toLowerCase(), subsrs.getObject(i));
+				}
+				rowplc.add(phm);
+			}
+			
+			rowocc.clear();
+			//Get data from SubAddress
+			subsrs = stmt2.executeQuery("SELECT subaddressid, subaddresstype, subaddressorder from address_subaddress " +
+					" WHERE ADDRESSID = '" + row.get("addressid") + "' " +
+					" ORDER by subaddressorder");
+			subrsm = subsrs.getMetaData();
+			while (subsrs.next()) {
+				HashMap<String, Object> phm = new HashMap<String, Object>();
+				for (int i = 1; i <= subrsm.getColumnCount(); i++) {
+					phm.put(subrsm.getColumnName(i).toLowerCase(), subsrs.getObject(i));
+				}
+				rowocc.add(phm);
+			}
+			
+			rowalias.clear();
+			//Get related Address info
+			
 			doc = writeXMLRow(doc, row, rowplc, rowocc, rowalias);
 		}
 
@@ -1232,6 +1300,12 @@ public class Geodata {
 	 */
 	public static void main(String[] args) throws Exception {
 
+		org.geotools.util.logging.Logging.GEOTOOLS
+		.setLoggerFactory(org.geotools.util.logging.Log4JLoggerFactory
+				.getInstance());
+		org.apache.log4j.LogManager.getLogger("org.geotools").setLevel(
+		org.apache.log4j.Level.OFF);
+
 		Geodata g = new Geodata("AddressDB", "Addressdb");
 		if (args.length > 0 && args[0].startsWith("-gui")) {
 			try {
@@ -1243,8 +1317,8 @@ public class Geodata {
 		} else {
 
 			try {
-				if ( g.initProject() != 1 ) {
-				if (g.operationMode != "init") {
+				if ( g.initProject() == 1 ) {
+				if ( !g.operationMode.equals("init") ) {
 					g.importGIS("data/Export_Output.shp");
 					g.loadMaps("address");
 					g.mapRawFlds("address");
@@ -1255,13 +1329,13 @@ public class Geodata {
 
 					g.runQA("address");
 
-					if (g.operationMode != "qa") {
-						if (g.operationMode == "exportfiles") {
+					if ( !g.operationMode.equals("qa") ) {
+						if ( !g.operationMode.equals("exportfiles") ) {
 				//			g.exportTable(g.workDir + "MSAG", "address.MSAG_gr");
 							
 						}
 
-						if (g.operationMode == "publish") {
+						if (g.operationMode.equals("publish") ) {
 							Document doc = null;
 							g.exportXML(doc);
 						}

@@ -1,3 +1,4 @@
 "TABLEID"	"RAW"	"MAP"
-1	USPS_CITY	USPS
+1	MAPSCO	USPSCommunityName
+1	NBHDCD	NeighborhoodName
 
