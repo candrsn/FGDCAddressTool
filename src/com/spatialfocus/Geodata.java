@@ -911,12 +911,9 @@ public class Geodata {
 				if (s != null) {
 					can.appendChild(doc.createTextNode(s.toString()));
 				}
+				address.appendChild(can);
 			} else {
 				can = doc.createElement("CompletePlaceName");
-				for ( int si=0; si < rowplc.size(); si++ ) {
-					
-				}
-
 				// USPSCommunityName
 				// MunicipalJurisdiction
 				// County
@@ -927,8 +924,7 @@ public class Geodata {
 					String po = sc.get("placenameorder").toString();
 					if (pn != null) {
 						cac = doc.createElement("PlaceName");
-						cac.appendChild(doc.createTextNode(pn));
-					
+			
 						attr = doc.createAttribute("PlaceNameType");
 						attr.setValue(pt);
 						cac.setAttributeNode(attr);
@@ -938,6 +934,8 @@ public class Geodata {
 							attr.setValue(po);
 							cac.setAttributeNode(attr);		
 						}
+						cac.appendChild(doc.createTextNode(pn));
+						can.appendChild(cac);
 					}
 				}
 
@@ -945,21 +943,25 @@ public class Geodata {
 				if (s != null) {
 					cac = doc.createElement("StateName");
 					cac.appendChild(doc.createTextNode(s.toString()));
+					can.appendChild(cac);
 				}
 				s = row.get("zipcode");
 				if (s != null) {
 					cac = doc.createElement("ZipCode");
 					cac.appendChild(doc.createTextNode(s.toString()));
+					can.appendChild(cac);
 				}
 				s = row.get("zipplus4");
 				if (s != null) {
 					cac = doc.createElement("ZipPlus4");
 					cac.appendChild(doc.createTextNode(s.toString()));
+					can.appendChild(cac);
 				}
 				s = row.get("countryname");
 				if (s != null) {
 					cac = doc.createElement("CountryName");
 					cac.appendChild(doc.createTextNode(s.toString()));
+					can.appendChild(cac);
 				}
 
 			}

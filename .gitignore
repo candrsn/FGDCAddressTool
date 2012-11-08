@@ -4,3 +4,5 @@ packaging/
 bundled/
 data/
 files/
+jar-in-jar-loader.zip
+src/com/spatialfocus/h2/

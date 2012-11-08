@@ -1,0 +1,25 @@
+this notice is not a legal software usage agreement, it is provided as a courtesy to assist you in reviewing the licences associated with the modules making up this product.
+
+FGDCAddressTool Notice
+
+Unless otherwise indicated all content is made available under:
+
+SpatialFocus BSD 3 Clause License (BSD) Version 1.0 (BSD). A copy of this license is provided with the product.
+
+Software packaged with the FGDCAddressTool includes
+geotools.org available at (http://www.geotools.org)
+JASPA 0.2.0 available at (http://jaspa.upv.es/blog)
+H2 available at (http://www.h2database.com))
+javacsv available at (http://jacacsv.sourceforce.net)
+eclipse jar-in-jar-loader available at (http://www.eclipse.org)
+
+These packages and their internal components are covered under one or more of the following licenses.
+
+GNU Lesser General Public License, version 2.1 (available at http://www.gnu.org/licenses/lgpl-2.1.html)
+GNU Lesser General Public License, version 2.0 (available at http://www.gnu.org/licenses/lgpl-2.0.html)
+Eclipse Distribution License Version 1.0 (available at http://www.eclipse.org/licenses/edl-v1.0.html)
+Common Public License Version 1.0 (available at http://www.eclipse.org/legal/cpl-v10.html)
+Apache Software License 1.1 (available at http://www.apache.org/licenses/LICENSE)
+Apache Software License 2.0 (available at http://www.apache.org/licenses/LICENSE-2.0)
+Mozilla Public License Version 1.1 (available at http://www.mozilla.org/MPL/MPL-1.1.html)
+
