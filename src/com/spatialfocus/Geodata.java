@@ -47,6 +47,8 @@ import org.opengis.feature.type.AttributeType;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.xml.sax.AttributeList;
+import org.xml.sax.SAXException;
 
 import org.geotools.*;
 import org.geotools.data.DataAccess;
@@ -59,6 +61,9 @@ import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.data.simple.SimpleFeatureSource;
 
 import com.spatialfocus.gui.AddressToolapp;
+//import com.sun.xml.internal.txw2.output.DataWriter;
+//import com.sun.xml.internal.bind.marshaller.DataWriter;
+import com.megginson.sax.*;
 import com.vividsolutions.jts.geom.Geometry;
 
 public class Geodata {
@@ -75,6 +80,10 @@ public class Geodata {
 	String qATestList, transformList, zoneField = "ZIPCODE";
 	String validModes = "'initialize'transform'qa'publish'exportfiles'";
 
+	String addrURI = "http://www.fgdc.gov/schemas/address/addr";
+	String addrTypeURI = "http://www.fgdc.gov/schemas/address/addr_type";
+	int maxRecords = 50;  // set to -1 for unlimited 
+	
 	public Geodata(String longName, String shortName) throws Exception {
 
 		// Get some default names
@@ -458,7 +467,8 @@ public class Geodata {
 				}
 				if (s[2].length() > 0) {
 					stmtq.execute(s[2]);
-				}
+				}		
+
 				qafw.write("\n\n");
 			} // qafile Exists
 		} // each qafile
@@ -486,7 +496,8 @@ public class Geodata {
 		File shpFile = new File(shpFilepath);
 
 		try {
-			if ((!shpFile.exists()) && (!shpFile.isFile())) {
+			if ((!shpFile.exists()) && (!shpFile.isFile())) {		
+
 				String message = "file is not found";
 				System.out.println(message);
 				// throw new FileNotFoundException(message);
@@ -553,8 +564,9 @@ public class Geodata {
 		}
 		pw.println("");
 
+		int recs = 0;
 		iterator = collection.features();
-		while (iterator.hasNext()) {
+		while (iterator.hasNext() && (recs++ < maxRecords || maxRecords == -1) ) {
 
 			SimpleFeature feature = (SimpleFeature) iterator.next();
 
@@ -741,179 +753,211 @@ public class Geodata {
 				+ "_prelim )");
 		
 		
-
-		
-		
 		return 1;
 
 	}
 
-	public Document writeXMLHdr(Map<String, Object> row) throws Exception {
+	@SuppressWarnings("deprecation")
+	public void exportXML() throws Exception {
+		   DataWriter dw = null;
 
-		Document doc = null;
-		try {
+			Statement stmt = dbconn.createStatement();
+			Statement stmt2 = dbconn.createStatement();
+			String sql = "";
+			ResultSet subsrs;
+			ResultSetMetaData subrsm;
 
-			DocumentBuilderFactory docFactory = DocumentBuilderFactory
-					.newInstance();
-			DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+			//Get data from Core
+			ResultSet srs = stmt.executeQuery("SELECT * from address_core");
+			ResultSetMetaData rsm = srs.getMetaData();
 
-			// root elements
-			doc = docBuilder.newDocument();
-			Element rootElement = doc.createElement("AddressCollection");
-			doc.appendChild(rootElement);
+			// Start Feed
+			Map<String, Object> row = new HashMap<String, Object>();
+			ArrayList<HashMap<String, Object>> rowplc = new ArrayList<HashMap<String, Object>>();
+			ArrayList<HashMap<String, Object>> rowocc = new ArrayList<HashMap<String, Object>>();
+			Map<String, Object> rowalias = new HashMap<String, Object>();
 
-			Attr attr = doc.createAttribute("version");
-			attr.setValue("0.4");
-			rootElement.setAttributeNode(attr);
+			while (srs.next()) {
+				row.clear();
+				for (int i = 1; i <= rsm.getColumnCount(); i++) {
+					row.put(rsm.getColumnName(i).toLowerCase(), srs.getObject(i));
+				}
+				if (srs.isFirst())
+					dw = writeXMLHdr(row);
 
-			attr = doc.createAttribute("xmlns:addr");
-			attr.setValue("http://www.fgdc.gov/schemas/address/addr");
-			rootElement.setAttributeNode(attr);
+				rowplc.clear();
+				//Get data from place
+				subsrs = stmt2.executeQuery("SELECT placename, placenametype, placenameorder from address_place " +
+						" WHERE ADDRESSID = '" + row.get("addressid") + "' " +
+						" ORDER BY placenameorder");
+				subrsm = subsrs.getMetaData();
+				while (subsrs.next()) {
+					HashMap<String, Object> phm = new HashMap<String, Object>();
+					for (int i = 1; i <= subrsm.getColumnCount(); i++) {
+						phm.put(subrsm.getColumnName(i).toLowerCase(), subsrs.getObject(i));
+					}
+					rowplc.add(phm);
+				}
+				subsrs.close();
+				
+				rowocc.clear();
+				//Get data from SubAddress
+				subsrs = stmt2.executeQuery("SELECT subaddressid, subaddresstype, subaddressorder from address_subaddress " +
+						" WHERE ADDRESSID = '" + row.get("addressid") + "' " +
+						" ORDER by subaddressorder");
+				subrsm = subsrs.getMetaData();
+				while (subsrs.next()) {
+					HashMap<String, Object> phm = new HashMap<String, Object>();
+					for (int i = 1; i <= subrsm.getColumnCount(); i++) {
+						phm.put(subrsm.getColumnName(i).toLowerCase(), subsrs.getObject(i));
+					}
+					rowocc.add(phm);
+				}
+				subsrs.close();
+				
+				rowalias.clear();
+				//handle related Address info
+				
+				dw = writeXMLRow(dw, row, rowplc, rowocc, rowalias);
+			}
 
-			attr = doc.createAttribute("xmlns:addr_type");
-			attr.setValue("http://www.fgdc.gov/schemas/address/addr_type");
-			rootElement.setAttributeNode(attr);
+			writeXMLFtr(dw);
 
-			attr = doc.createAttribute("xmlns:gml");
-			attr.setValue("http://www.fgdc.gov/schemas/address/addr_type");
-			rootElement.setAttributeNode(attr);
+			srs = stmt.executeQuery("SELECT count(*) from address_core");
+			srs.first();
+			String recs;
+			if (srs.isFirst()) {
+				recs = srs.getObject(1).toString();
+				/* log the export */
 
-			attr = doc.createAttribute("xmlns:smil20");
-			attr.setValue("http://www.w3.org/2001/SMIL20/");
-			rootElement.setAttributeNode(attr);
+				boolean srs2 = stmt2
+						.execute("INSERT INTO publication_info (pub_records) values "
+								+ "(" + recs + ")");
+			}
 
-			attr = doc.createAttribute("xmlns:smil20lang");
-			attr.setValue("http://www.w3.org/2001/SMIL20/Language");
-			rootElement.setAttributeNode(attr);
 
-			attr = doc.createAttribute("xmlns:xlink");
-			attr.setValue("http://www.w3.org/1999/xlink");
-			rootElement.setAttributeNode(attr);
+	}
+	
+	public DataWriter writeXMLHdr(Map<String, Object> row) throws Exception {
+		DataWriter dw = null;
+		
+		FileWriter tw = new FileWriter(workDir + "/"
+				+ evt_xml);
+		dw = new DataWriter(tw);
+		
+		dw.reset();
+		
+		dw.setIndentStep(2);
 
-			attr = doc.createAttribute("xmlns:xml");
-			attr.setValue("http://www.w3.org/XML/1998/namespace");
-			rootElement.setAttributeNode(attr);
+		// root elements
+		dw.startDocument();
 
-			attr = doc.createAttribute("xmlns:xsi");
-			attr.setValue("http://www.w3.org/2001/XMLSchema-instance");
-			rootElement.setAttributeNode(attr);
+		dw.forceNSDecl(addrTypeURI, "addr_type");			
+		dw.forceNSDecl(addrURI, "addr");	
+		dw.forceNSDecl("http://www.fgdc.gov/schemas/address/gml","gml"); 
+		dw.startPrefixMapping("addr", addrURI);	
+		
+		org.xml.sax.helpers.AttributesImpl attr = new org.xml.sax.helpers.AttributesImpl();
+		attr.addAttribute(addrURI, "version", "addr:version", "float", "0.4");					
+		dw.startElement(addrURI, "AddressCollection", "addr:AddressCollection", attr);
+		attr.clear();
+		
+	   return dw;
+	}
 
-			attr = doc.createAttribute("xsi:schemaLocation");
-			attr.setValue("http://www.fgdc.gov/schemas/address/addr addr.xsd");
-			rootElement.setAttributeNode(attr);
+	public int writeXMLFtr(DataWriter dw) throws Exception {
+	
+		// write the content into xml file
+		dw.endElement(addrURI, "AddressCollection");
+		dw.endDocument();
+		
+		
+		System.out.println("Local copy of xml file saved to: " +
+			      workDir + "/" + evt_xml);	
+		
+		return 1;
+	}
 
-		} catch (ParserConfigurationException pce) {
-			pce.printStackTrace();
-		}
-
-		return doc;
-
-	};
-
-	public Document writeXMLRow(Document doc, Map<String, Object> row,
+	public DataWriter writeXMLRow(DataWriter dw, Map<String, Object> row,
 			ArrayList<HashMap<String, Object>> rowplc, ArrayList<HashMap<String, Object>> rowocc,
-			Map<String, Object> rowalias) {
-
+			Map<String, Object> rowalias) throws SAXException {
+	
 		Object s = null;
+		org.xml.sax.helpers.AttributesImpl attr = new org.xml.sax.helpers.AttributesImpl();
+        String addressClass = "NumberedThoroughfareAddress"; 
 		try {
+	
+			dw.startElement(addrURI, addressClass);
 
-			Element rootElement = doc.getDocumentElement();
-			// incident elements
-			Element address = doc.createElement("NumberedThoroughfareAddress");
-			rootElement.appendChild(address);
-
-			Element can, cac;
-			Attr attr;
-
-			can = doc.createElement("CompleteAddressNumber");
+			dw.startElement(addrTypeURI, "CompleteAddressNumber");
 			s = row.get("addressnumberprefix");
 			if (s != null) {
-				cac = doc.createElement("AddressNumberPrefix");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "AddressNumberPrefix", s.toString());
 			}
 			s = row.get("addressnumber");
 			if (s != null) {
-				cac = doc.createElement("AddressNumber");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "AddressNumber", s.toString());
 			}
 			s = row.get("addressnumbersuffix");
 			if (s != null) {
-				cac = doc.createElement("AddressNumberSuffix");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "AddressNumberSuffix", s.toString());
 			}
-			address.appendChild(can);
-
-			can = doc.createElement("CompleteStreetName");
-			s = row.get("StreetNamePreModifier");
+			dw.endElement(addrTypeURI, "CompleteAddressNumber");
+	
+			dw.startElement(addrTypeURI, "CompleteStreetName");
+			s = row.get("streetnamepremodifier");
+			
 			if (s != null) {
-				cac = doc.createElement("StreetNamePreModifier");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetNamePreModifier", s.toString());
 			}
 			s = row.get("streetnamepredirectional");
 			if (s != null) {
-				cac = doc.createElement("StreetNamePreDirectional");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetNamePreDirectional", s.toString());
 			}
 			s = row.get("streetnamepretype");
 			if (s != null) {
-				cac = doc.createElement("StreetNamePreType");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetNamePreType", s.toString());
 			}
 			s = row.get("streetname");
 			if (s != null) {
-				cac = doc.createElement("StreetName");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetName", s.toString());
 			}
 			s = row.get("streetnameposttype");
 			if (s != null) {
-				cac = doc.createElement("StreetNamePostype");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetNamePostType", s.toString());
 			}
 			s = row.get("streetnamepostdirectional");
 			if (s != null) {
-				cac = doc.createElement("StreetNamePostDirectional");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetNamePostDirectional", s.toString());
 			}
 			s = row.get("streetnamepostmodifier");
 			if (s != null) {
-				cac = doc.createElement("StreetNamePostModifier");
-				cac.appendChild(doc.createTextNode(s.toString()));
-				can.appendChild(cac);
+				dw.dataElement(addrTypeURI, "StreetNamePostModifier", s.toString());
 			}
-			address.appendChild(can);
-
-			can = doc.createElement("CompleteSubaddress");
-			s = row.get("addressid");
-			if (s != null) {
-				cac = doc.createElement("SubaddressElement");
-				cac.appendChild(doc.createTextNode(s.toString()));
-			}
-			s = row.get("subaddresstype");
-			if (s != null) {
-				cac = doc.createElement("SubaddressType");
-				cac.appendChild(doc.createTextNode(s.toString()));
-			}
-			address.appendChild(can);
-
-			if (row.get("PlaceStateZip") != null) {
-				can = doc.createElement("PlaceStateZip");
-				can.appendChild(doc.createTextNode(s.toString()));
-				s = row.get("PlaceStateZip");
-				if (s != null) {
-					can.appendChild(doc.createTextNode(s.toString()));
+			dw.endElement(addrTypeURI, "CompleteStreetName");
+			
+			dw.startElement(addrTypeURI, "CompleteSubaddress");
+			// Suites, Buildings, Apts
+			for ( int si=0; si < rowocc.size(); si++) {
+				HashMap<String, Object> sc = rowocc.get(si);
+				String pn = sc.get("subaddressid").toString();
+				String pt = sc.get("subaddresstype").toString();
+				String po = sc.get("subaddressorder").toString();
+				if (pn != null) {
+					attr.clear();
+					attr.addAttribute(addrTypeURI, "SubaddressType", "addr_type:SubaddressType", "String", pt);
+					if ( ! po.equals("") ) {
+						attr.addAttribute(addrTypeURI, "SubaddressOrder", "addr_type:SubaddressOrder", "String", po);
+					}
+					dw.dataElement(addrTypeURI, "SubaddressElement", "", attr, pn);
 				}
-				address.appendChild(can);
+			}			
+			dw.endElement("CompleteSubaddress");
+			
+			if (row.get("PlaceStateZip") != null) {
+				dw.dataElement(addrTypeURI, "PlaceStateZip", s.toString());
 			} else {
-				can = doc.createElement("CompletePlaceName");
+				dw.startElement(addrTypeURI, "CompletePlaceName");
 				// USPSCommunityName
 				// MunicipalJurisdiction
 				// County
@@ -923,377 +967,188 @@ public class Geodata {
 					String pt = sc.get("placenametype").toString();
 					String po = sc.get("placenameorder").toString();
 					if (pn != null) {
-						cac = doc.createElement("PlaceName");
-			
-						attr = doc.createAttribute("PlaceNameType");
-						attr.setValue(pt);
-						cac.setAttributeNode(attr);
-					
+						attr.clear();
+						attr.addAttribute(addrTypeURI, "PlaceNameType", "addr_type:PlaceNameType", "String", pt);
 						if ( ! po.equals("") ) {
-							attr = doc.createAttribute("PlaceNameOrder");
-							attr.setValue(po);
-							cac.setAttributeNode(attr);		
+							attr.addAttribute(addrTypeURI, "PlaceNameOrder", "addr_type:PlaceNameOrder", "String", po);
 						}
-						cac.appendChild(doc.createTextNode(pn));
-						can.appendChild(cac);
+						dw.dataElement(addrTypeURI, "PlaceNameElement", "", attr, pn);
 					}
 				}
-
+	
 				s = row.get("statename");
-				if (s != null) {
-					cac = doc.createElement("StateName");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					can.appendChild(cac);
+				if (s != null && ! s.toString().isEmpty()) {
+					dw.dataElement(addrTypeURI, "StateName", s.toString());
 				}
 				s = row.get("zipcode");
-				if (s != null) {
-					cac = doc.createElement("ZipCode");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					can.appendChild(cac);
+				if (s != null && ! s.toString().isEmpty()) {
+					dw.dataElement(addrTypeURI, "ZipCode", s.toString());
 				}
 				s = row.get("zipplus4");
-				if (s != null) {
-					cac = doc.createElement("ZipPlus4");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					can.appendChild(cac);
+				if (s != null && ! s.toString().isEmpty()) {
+					dw.dataElement(addrTypeURI, "ZipPlus4", s.toString());
 				}
 				s = row.get("countryname");
-				if (s != null) {
-					cac = doc.createElement("CountryName");
-					cac.appendChild(doc.createTextNode(s.toString()));
-					can.appendChild(cac);
+				if (s != null && ! s.toString().isEmpty()) {
+					dw.dataElement(addrTypeURI, "CountryName", s.toString());
 				}
-
 			}
-			address.appendChild(can);
-
+			dw.endElement("CompletePlaceName");
+	
 			s = row.get("addressid");
-			if (s != null) {
-				can = doc.createElement("AddressId");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressId", s.toString());
 			}
 			s = row.get("addressauthority");
-			if (s != null) {
-				can = doc.createElement("AddressAuthority");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressAuthority", s.toString());
 			}
-			s = row.get("addressauthority");
-			if (s != null) {
-				can = doc.createElement("AddressAuthority");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
-			}
-
+	
 			s = rowalias.get("relatedaddress1");
-			if (s != null) {
-				can = doc.createElement("RelatedAddressID");
-				can.appendChild(doc.createTextNode(s.toString()));
-				attr = doc.createAttribute("RelatedAddressType");
-				attr.setValue(rowalias.get("relationrole1").toString());
-				can.setAttributeNode(attr);
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				attr.clear();
+				String po = rowalias.get("relationrole1").toString();
+				if ( ! po.equals("") ) {
+ 				    attr.addAttribute(addrTypeURI, "RelatedAddressType", "addr_type:RelatedAddressType", "String", po);
+				}
+				dw.dataElement(addrTypeURI, "RelatedAddressId", "", attr, s.toString());
 			}
 			s = rowalias.get("relatedaddress2");
-			if (s != null) {
-				can = doc.createElement("RelatedAddressID");
-				can.appendChild(doc.createTextNode(s.toString()));
-				attr = doc.createAttribute("RelatedAddressType");
-				attr.setValue(rowalias.get("relationrole2").toString());
-				can.setAttributeNode(attr);
-				address.appendChild(can);
+			if (s != null && !s.toString().isEmpty()) {
+				attr.clear();
+				String po = rowalias.get("relationrole2").toString();
+				if ( ! po.equals("") ) {
+ 				   attr.addAttribute(addrTypeURI, "RelatedAddressType", "addr_type:RelatedAddressType", "String", po);
+				}
+				dw.dataElement(addrTypeURI, "RelatedAddressId", "", attr, s.toString());
 			}
-
+	
 			s = row.get("addressxcoordinate");
-			if (s != null) {
-				can = doc.createElement("AddressXCoordinate");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && !s.toString().isEmpty() ) {
+				dw.dataElement(addrTypeURI, "AddressXCoordinate", s.toString());
 			}
 			s = row.get("addressycoordinate");
-			if (s != null) {
-				can = doc.createElement("AddressYCoordinate");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressYCoordinate", s.toString());
 			}
-			s = row.get("addresslonigtude");
-			if (s != null) {
-				can = doc.createElement("AddressLongitude");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			s = row.get("addresslongitude");
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressLongitude", s.toString());
 			}
 			s = row.get("addresslatitude");
-			if (s != null) {
-				can = doc.createElement("AddressLatitude");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressLatitude", s.toString());
 			}
 			s = row.get("usnationalgridcoordinate");
-			if (s != null) {
-				can = doc.createElement("USNationalGridCoordinate");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "USNationalGridCoordinate", s.toString());
 			}
 			s = row.get("addresselevation");
-			if (s != null) {
-				can = doc.createElement("AddressElevation");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressElevation", s.toString());
 			}
 			s = row.get("addresscoordinatreferencesystem");
-			if (s != null) {
-				can = doc.createElement("AddressCoordinateReferenceSystem");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressCoordinateReferenceSystem", s.toString());
 			}
 			s = row.get("addressparcelidentifiersource");
-			if (s != null) {
-				can = doc.createElement("AddressParcelIdentifierSource");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressParcelIdentifierSource", s.toString());
 			}
 			s = row.get("addressparcelidentifier");
-			if (s != null) {
-				can = doc.createElement("AddressParcelIdentifier");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressParcelIdentifier", s.toString());
 			}
 			s = row.get("addresstransportationsystemname");
-			if (s != null) {
-				can = doc.createElement("AddressTransportationSystemName");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressTransportationSystemName", s.toString());
 			}
 			s = row.get("addresstransportationsystemauthority");
-			if (s != null) {
-				can = doc.createElement("AddressTransportationSystemAuthority");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressTransportationSystemAuthority", s.toString());
 			}
 			s = row.get("addresstransportationfeaturetype");
-			if (s != null) {
-				can = doc.createElement("AddressTransportationFeatureType");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressTransportationFeatureType", s.toString());
 			}
 			s = row.get("addresstransportationfeatureid");
-			if (s != null) {
-				can = doc.createElement("AddressTransportationFeatureId");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressTransportationFeatureId", s.toString());
 			}
 			s = row.get("relatedaddresstransportationfeatureid");
-			if (s != null) {
-				can = doc
-						.createElement("RelatedAddressTransportationFeatureId");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "RelatedAddressTransportationFeatureId", s.toString());
 			}
 			s = row.get("addressclassification");
-			if (s != null) {
-				can = doc.createElement("AddressClassification");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressClassification", s.toString());
 			}
 			s = row.get("addressfeaturetype");
-			if (s != null) {
-				can = doc.createElement("AddressFeatureType");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressFeatureType", s.toString());
 			}
 			s = row.get("addresslifecyclestatus");
-			if (s != null) {
-				can = doc.createElement("AddressLifecycleStatus");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressLifecycleStatus", s.toString());
 			}
 			s = row.get("officialstatus");
-			if (s != null) {
-				can = doc.createElement("OfficialStatus");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "OfficialStatus", s.toString());
 			}
 			s = row.get("addressanomalystatus");
-			if (s != null) {
-				can = doc.createElement("AddressAnomalyStatus");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressAnomalyStatus", s.toString());
 			}
 			s = row.get("addresssideofstreet");
-			if (s != null) {
-				can = doc.createElement("AddressSideofStreet");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressSideofStreet", s.toString());
 			}
 			s = row.get("addresszlevel");
-			if (s != null) {
-				can = doc.createElement("AddressZLevel");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressZLevel", s.toString());
 			}
 			s = row.get("addressfeaturetype");
-			if (s != null) {
-				can = doc.createElement("AddressFeatureType");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressFeatureType", s.toString());
 			}
 			s = row.get("locationdescription");
-			if (s != null) {
-				can = doc.createElement("LocationDescription");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "LocationDescription", s.toString());
 			}
 			s = row.get("addressfeaturetype");
-			if (s != null) {
-				can = doc.createElement("AddressFeatureType");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressFeatureType", s.toString());
 			}
 			s = row.get("mailableaddress");
-			if (s != null) {
-				can = doc.createElement("MailableAddress");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "MailableAddress", s.toString());
 			}
 			s = row.get("addressstartdate");
-			if (s != null) {
-				can = doc.createElement("AddressStartDate");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressStartDate", s.toString());
 			}
 			s = row.get("addressenddate");
-			if (s != null) {
-				can = doc.createElement("AddressEndDate");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressEndDate", s.toString());
 			}
 			s = row.get("datasetid");
-			if (s != null) {
-				can = doc.createElement("DatasetId");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "DatasetId", s.toString());
 			}
 			s = row.get("addressreferencesystemid");
-			if (s != null) {
-				can = doc.createElement("AddressReferenceSystemId");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressReferenceSystemId", s.toString());
 			}
 			s = row.get("addressreferencesystemauthority");
-			if (s != null) {
-				can = doc.createElement("AddressReferenceSystemAuthority");
-				can.appendChild(doc.createTextNode(s.toString()));
-				address.appendChild(can);
+			if (s != null && ! s.toString().isEmpty()) {
+				dw.dataElement(addrTypeURI, "AddressReferenceSystemAuthority", s.toString());
 			}
-
+	
 		} finally {
 		}
-
-		return doc;
-	}
-
-	public int writeXMLFtr(Document doc) throws Exception {
-
-		try {
-			// write the content into xml file
-			TransformerFactory transformerFactory = TransformerFactory
-					.newInstance();
-			Transformer transformer = transformerFactory.newTransformer();
-			DOMSource source = new DOMSource(doc);
-			StreamResult result = new StreamResult(new File(workDir + "/"
-					+ evt_xml));
-
-			// Output to console for testing
-			// StreamResult result = new StreamResult(System.out);
-
-			transformer.transform(source, result);
-
-			System.out.println("Local copy of xml file saved");
-
-		} catch (TransformerException tfe) {
-			tfe.printStackTrace();
-		}
-
-		return 1;
-	}
-
-	public Document exportXML(Document doc) throws Exception {
-
-		Statement stmt = dbconn.createStatement();
-		Statement stmt2 = dbconn.createStatement();
-		String sql = "";
-		ResultSet subsrs;
-		ResultSetMetaData subrsm;
-
-		//Get data from Core
-		ResultSet srs = stmt.executeQuery("SELECT * from address_core");
-		ResultSetMetaData rsm = srs.getMetaData();
-
-		// Start Feed
-		Map<String, Object> row = new HashMap<String, Object>();
-		ArrayList<HashMap<String, Object>> rowplc = new ArrayList<HashMap<String, Object>>();
-		ArrayList<HashMap<String, Object>> rowocc = new ArrayList<HashMap<String, Object>>();
-		Map<String, Object> rowalias = new HashMap<String, Object>();
-
-		while (srs.next()) {
-			row.clear();
-			for (int i = 1; i <= rsm.getColumnCount(); i++) {
-				row.put(rsm.getColumnName(i).toLowerCase(), srs.getObject(i));
-			}
-			if (srs.isFirst())
-				doc = writeXMLHdr(row);
-
-			rowplc.clear();
-			//Get data from place
-			subsrs = stmt2.executeQuery("SELECT placename, placenametype, placenameorder from address_place " +
-					" WHERE ADDRESSID = '" + row.get("addressid") + "' " +
-					" ORDER BY placenameorder");
-			subrsm = subsrs.getMetaData();
-			while (subsrs.next()) {
-				HashMap<String, Object> phm = new HashMap<String, Object>();
-				for (int i = 1; i <= subrsm.getColumnCount(); i++) {
-					phm.put(subrsm.getColumnName(i).toLowerCase(), subsrs.getObject(i));
-				}
-				rowplc.add(phm);
-			}
-			
-			rowocc.clear();
-			//Get data from SubAddress
-			subsrs = stmt2.executeQuery("SELECT subaddressid, subaddresstype, subaddressorder from address_subaddress " +
-					" WHERE ADDRESSID = '" + row.get("addressid") + "' " +
-					" ORDER by subaddressorder");
-			subrsm = subsrs.getMetaData();
-			while (subsrs.next()) {
-				HashMap<String, Object> phm = new HashMap<String, Object>();
-				for (int i = 1; i <= subrsm.getColumnCount(); i++) {
-					phm.put(subrsm.getColumnName(i).toLowerCase(), subsrs.getObject(i));
-				}
-				rowocc.add(phm);
-			}
-			
-			rowalias.clear();
-			//Get related Address info
-			
-			doc = writeXMLRow(doc, row, rowplc, rowocc, rowalias);
-		}
-
-		writeXMLFtr(doc);
-
-		srs = stmt.executeQuery("SELECT count(*) from address_core");
-		srs.first();
-		String recs;
-		if (srs.isFirst()) {
-			recs = srs.getObject(1).toString();
-			/* log the export */
-
-			boolean srs2 = stmt2
-					.execute("INSERT INTO publication_info (pub_records) values "
-							+ "(" + recs + ")");
-		}
-
-		return doc;
-
+	
+		   dw.endElement(addressClass);		
+		return dw;
 	}
 
 	/**
@@ -1305,8 +1160,8 @@ public class Geodata {
 		org.geotools.util.logging.Logging.GEOTOOLS
 		.setLoggerFactory(org.geotools.util.logging.Log4JLoggerFactory
 				.getInstance());
-		org.apache.log4j.LogManager.getLogger("org.geotools").setLevel(
-		org.apache.log4j.Level.OFF);
+		org.apache.log4j.LogManager.getLogger("org.geotools").
+			setLevel(org.apache.log4j.Level.OFF);
 
 		Geodata g = new Geodata("AddressDB", "Addressdb");
 		if (args.length > 0 && args[0].startsWith("-gui")) {
@@ -1338,8 +1193,11 @@ public class Geodata {
 						}
 
 						if (g.operationMode.equals("publish") ) {
-							Document doc = null;
-							g.exportXML(doc);
+							// Document doc = null;
+							// g.exportXML(doc);
+
+							g.exportXML();
+							
 						}
 					}
 				}
